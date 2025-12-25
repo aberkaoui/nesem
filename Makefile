@@ -1,41 +1,57 @@
-CFLAGS = -g0
-CFLAGS_dbg = -g3
+# Directories
+SRC_DIR = ./src
+INCLUDE_DIR = ./include
+BIN_DIR = ./bin
+OBJ_DIR_rel = $(BIN_DIR)/obj/release
+OBJ_DIR_dbg = $(BIN_DIR)/obj/debug
 
-SRC_DIR = src
-INCLUDE_DIR = include
-BUILD_DIR = build
+# Files
+SRC_FILES = $(wildcard $(SRC_DIR)/*.cpp)
+# (Release mode)
+OBJ_FILES_rel = $(SRC_FILES:$(SRC_DIR)/%.cpp=$(OBJ_DIR_rel)/%.o)
+DEP_FILES_rel = $(OBJ_FILES_rel:$(OBJ_DIR_rel)/%.o=$(OBJ_DIR_rel)/%.d)
+BINARY_rel = $(BIN_DIR)/release/x86-64_linux-nesem
+# (Debug mode)
+OBJ_FILES_dbg = $(SRC_FILES:$(SRC_DIR)/%.cpp=$(OBJ_DIR_dbg)/%.o)
+DEP_FILES_dbg = $(OBJ_FILES_dbg:$(OBJ_DIR_dbg)/%.o=$(OBJ_DIR_dbg)/%.d)
+BINARY_dbg = $(BIN_DIR)/debug/x86-64_linux-nesem
 
-$(BUILD_DIR)/nesem_dbg : $(BUILD_DIR)/Bus_dbg.o $(BUILD_DIR)/NES6502_dbg.o $(BUILD_DIR)/main_dbg.o
-	mkdir $(BUILD_DIR) -p
-	clang++ $(CFLAGS_dbg) -o $(BUILD_DIR)/x86-64_linux-nesem-dbg $(BUILD_DIR)/Bus.o $(BUILD_DIR)/NES6502.o $(BUILD_DIR)/main.o
+# Compilation
+CXX = clang++
+CXXFLAGS = -g0 -I$(INCLUDE_DIR)/lol -MMD -MP -MF $(OBJ_DIR_rel)/$*.d
+CXXFLAGS_dbg = -g3 -I$(INCLUDE_DIR)/lol -MMD -MP -MF $(OBJ_DIR_dbg)/$*.d
 
-$(BUILD_DIR)/nesem : $(BUILD_DIR)/Bus.o $(BUILD_DIR)/NES6502.o $(BUILD_DIR)/main.o
-	mkdir $(BUILD_DIR) -p
-	clang++ $(CFLAGS) -o $(BUILD_DIR)/x86-64_linux-nesem $(BUILD_DIR)/Bus.o $(BUILD_DIR)/NES6502.o $(BUILD_DIR)/main.o
 
-$(BUILD_DIR)/Bus_dbg.o: $(SRC_DIR)/Bus.cpp
-	mkdir $(BUILD_DIR) -p
-	clang++ $(CFLAGS_dbg) -o $(BUILD_DIR)/Bus.o -c $(SRC_DIR)/Bus.cpp
+.PHONY: release debug all clean format
 
-$(BUILD_DIR)/NES6502_dbg.o : $(SRC_DIR)/NES6502.cpp
-	mkdir $(BUILD_DIR) -p
-	clang++ $(CFLAGS_dbg) -o $(BUILD_DIR)/NES6502.o -c $(SRC_DIR)/NES6502.cpp
+release: $(BINARY_rel)
+debug: $(BINARY_dbg)
+all: $(BINARY_rel) $(BINARY_dbg)
 
-$(BUILD_DIR)/main_dbg.o : $(SRC_DIR)/main.cpp
-	mkdir $(BUILD_DIR) -p
-	clang++ $(CFLAGS_dbg) -o $(BUILD_DIR)/main.o -c $(SRC_DIR)/main.cpp
+# Release mode build rule
+$(BINARY_rel): $(OBJ_FILES_rel)
+	@mkdir -p $(BIN_DIR)/release
+	$(CXX) $(OBJ_FILES_rel) -o $(BINARY_rel)
+$(OBJ_DIR_rel)/%.o: $(SRC_DIR)/%.cpp
+	@mkdir -p $(OBJ_DIR_rel)
+	$(CXX) -c $< -o $@ $(CXXFLAGS)
 
-$(BUILD_DIR)/Bus.o: $(SRC_DIR)/Bus.cpp
-	mkdir $(BUILD_DIR) -p
-	clang++ $(CFLAGS) -o $(BUILD_DIR)/Bus.o -c $(SRC_DIR)/Bus.cpp
+# Debug mode build rule
+$(BINARY_dbg): $(OBJ_FILES_dbg)
+	@mkdir -p $(BIN_DIR)/debug
+	$(CXX) $(OBJ_FILES_dbg) -o $(BINARY_dbg)
+$(OBJ_DIR_dbg)/%.o: $(SRC_DIR)/%.cpp
+	@mkdir -p $(OBJ_DIR_dbg)
+	$(CXX) -c $< -o $@ $(CXXFLAGS_dbg)
 
-$(BUILD_DIR)/NES6502.o : $(SRC_DIR)/NES6502.cpp
-	mkdir $(BUILD_DIR) -p
-	clang++ $(CFLAGS) -o $(BUILD_DIR)/NES6502.o -c $(SRC_DIR)/NES6502.cpp
-
-$(BUILD_DIR)/main.o : $(SRC_DIR)/main.cpp
-	mkdir $(BUILD_DIR) -p
-	clang++ $(CFLAGS) -o $(BUILD_DIR)/main.o -c $(SRC_DIR)/main.cpp
+-include $(DEP_FILES_rel)
+-include $(DEP_FILES_dbg)
+# Interesting note: generated .d dependency files do indeed consider the circular dependency
+# between Bus.h/cpp and NES6502.h/cpp.
+# So the include directive is "twice" better than just manually adding .h dependencies!
 
 clean:
-	rm -r $(BUILD_DIR)
+	rm -rf $(BIN_DIR)
+
+format:
+	clang-format -i $(SRC_DIR)/*.cpp $(INCLUDE_DIR)/*.h
