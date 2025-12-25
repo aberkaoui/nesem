@@ -29,11 +29,11 @@
 #include "../include/Bus.h"
 
 int main() {
-	Bus b;
+    Bus b;
 
-	// Ridiculous test
-	b.WriteRam(0xF000, 70);
-	std::cout << b.ReadRam(0xF000);
+    // Ridiculous test
+    b.WriteRam(0xF000, 70);
+    std::cout << b.ReadRam(0xF000);
 
-	return 0;
+    return 0;
 }
